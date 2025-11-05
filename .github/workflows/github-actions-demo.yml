@@ -1,0 +1,77 @@
+# Nome do seu Workflow
+name: CI Básico na Develop
+
+# Gatilho: Quando o workflow deve ser executado
+on:
+  # Executa o workflow em cada 'push'
+  push:
+    # Apenas quando o push for para a branch 'develop'
+    branches:
+      - develop
+  # Também permite a execução manual (opcional, mas útil para testes)
+  workflow_dispatch:
+
+# Definição dos 'jobs' (trabalhos) que serão executados
+jobs:
+  # O nome do seu primeiro e único job
+  build-and-test:
+    # O tipo de runner (máquina virtual) a ser usado
+    runs-on: ubuntu-latest
+
+    # Definição dos passos (steps)
+    steps:
+      # Passo 1: Checkout do código
+      - name: ⬇️ Checkout do Repositório
+        uses: actions/checkout@v4
+
+      # --- Etapa de Build ---
+      - name: 🔨 Etapa de Build (Simulação de Compilação)
+        id: build_step
+        run: |
+          echo "Simulando a compilação do projeto..."
+          # Aqui entraria o comando de build real, como 'npm run build' ou 'mvn package'
+          echo "Build successful"
+          echo "BUILD_STATUS=SUCCESS" >> $GITHUB_OUTPUT
+      
+      # --- Etapa de Testes ---
+      # Criamos uma simulação de sucesso/falha. 
+      # Por padrão (0), o teste será "bem-sucedido".
+      # Para testar a falha, mude '0' para '1'.
+      - name: 🧪 Etapa de Testes (Simulação de Pytest/Validação)
+        id: test_step
+        # Define que este passo só será executado se o build for bem-sucedido
+        if: ${{ success() }} 
+        run: |
+          echo "Executando testes..."
+          # Simulação de um comando de teste que pode falhar
+          TEST_EXIT_CODE=0 # 0 = Sucesso. Mude para 1 para simular falha.
+          
+          if [ $TEST_EXIT_CODE -eq 0 ]; then
+            echo "Todos os testes passaram."
+            echo "TEST_STATUS=SUCCESS" >> $GITHUB_OUTPUT
+            exit 0 # Sai com sucesso
+          else
+            echo "❌ Erro: Alguns testes falharam."
+            echo "TEST_STATUS=FAILED" >> $GITHUB_OUTPUT
+            exit 1 # Sai com falha para fazer o pipeline parar/falhar
+          fi
+
+      # --- Etapa de Relatório ---
+      # Este passo é crucial para o relatório e sempre deve rodar (mesmo se o teste falhar)
+      - name: 📝 Etapa de Relatório
+        if: ${{ always() }} # 'always()' garante que este passo sempre roda
+        run: |
+          echo "--- Relatório de CI ---"
+          
+          # Verifica se o passo de teste falhou
+          if [ "${{ steps.test_step.outcome }}" == "failure" ]; then
+            echo "❌ Pipeline Status: Falha nos Testes"
+            echo "Relatório: Test failed. Por favor, verifique os logs de testes."
+            exit 1 # Sai com falha para que o status final do job seja 'failure'
+          elif [ "${{ steps.build-and-test.conclusion }}" == "cancelled" ]; then
+            echo "⚠️ Pipeline Status: Cancelado"
+            echo "Relatório: O workflow foi cancelado manualmente."
+          else
+            echo "✅ Pipeline Status: Sucesso"
+            echo "Relatório: Build successful e todos os testes passaram."
+          fi
